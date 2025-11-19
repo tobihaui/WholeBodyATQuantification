@@ -93,8 +93,8 @@ def quantify_renal_hilum_fat(pred_: nib.Nifti1Image,
     kidney_seg = np.where(pred_data_ == label_kidneys, label_kidneys, 0)
     kidney_seg = erode_volume(kidney_seg)
     sep = left_right_separation(kidney_seg)
-    kidney_seg[:sep, :, :][kidney_seg[:sep, :, :] == label_kidneys] = 20
-    kidney_seg[sep:, :, :][kidney_seg[sep:, :, :] == label_kidneys] = 21
+    kidney_seg[:sep, :, :][kidney_seg[:sep, :, :] != 0] = 20
+    kidney_seg[sep:, :, :][kidney_seg[sep:, :, :] != 0] = 21
     thr_l = compute_intensity_threshold(ff_map_[kidney_seg == 20])
     thr_r = compute_intensity_threshold(ff_map_[kidney_seg == 21])
     fat_in_hilum[(kidney_seg == 20) & (ff_map_ > thr_l)] = 1
@@ -138,7 +138,7 @@ def quantify_muscle(pred_: nib.Nifti1Image,
         if save_modified_mask is not None:
             _save_modified_mask(imat, pred_, save_modified_mask)
         
-        return n_imat, n_muscle, ff_lean
+        return n_muscle, n_imat, ff_lean
 
 
 ## Liver
@@ -174,7 +174,7 @@ def quantify_pancreas(pred_: nib.Nifti1Image,
     # Perform erosion for (PD)FF quantification
     panc_seg = erode_volume(panc_seg)
     ipat = np.zeros(pred_data_.shape, dtype=np.int8)
-    ipat[(panc_seg == label_panc) & (ff_map_ > 500)] = label_panc
+    ipat[(panc_seg != 0) & (ff_map_ > 500)] = 1
     n_ipat = np.count_nonzero(ipat)
     
     lean_panc = panc_seg - ipat
@@ -228,23 +228,37 @@ def quantify_bone_marrow(pred_: nib.Nifti1Image,
                          label_bones: int = 100,
                          two_sided: bool = False,
                          save_modified_mask: str = None):
-    pass
+    
+    print('Not implemented yet.')
 
 
 # periX ADIPOSE TISSUE QUANTIFICATION
-def compute_perix_adipose_tissue(pred_: nib.Nifti1Image,
-                                 ff_map_: np.array,):
-    print('Not implemented yet.')
+def quantify_perix_adipose_tissue(pred_: nib.Nifti1Image,
+                                  ff_map_: np.array,
+                                  peri_x_label: int,
+                                  dilation_structure: np.array = np.ones((1, 5, 5), np.int8),
+                                  ff_intensity_threshold: int = 500):
+    
+    pred_data_ = pred_.get_fdata()
+    base_seg = np.where(pred_data_ == peri_x_label, 1, 0)
+    dilated_seg = dilate_volume(base_seg)
+    diff = dilated_seg - base_seg
+    n_peri_x = np.count_nonzero(ff_map_[(diff != 0) & (ff_map_ > 500)])
+    
+    return n_peri_x
 
 
 # Helper functions
 def compute_intensity_threshold(ff_map_: np.array) -> float:
-    q3 = np.quantile(ff_map_, 0.75)
-    iqr = q3 - np.quantile(ff_map_, 0.25)
-    thr = q3 + 3 * iqr
-    # Clip threshold of high fat patients
-    # Value is empirically determined
-    if thr > 200: thr = 200
+    try:
+        q3 = np.quantile(ff_map_, 0.75)
+        iqr = q3 - np.quantile(ff_map_, 0.25)
+        thr = q3 + 3 * iqr
+        # Clip threshold of high fat patients
+        # Value is empirically determined
+        if thr > 200: thr = 200
+    except:
+        thr = 200
 
     return thr
 
@@ -271,7 +285,47 @@ def left_right_separation(pred_one_class_: np.array) -> int:
 
 def erode_volume(pred_: np.array,
                  kernel: np.array = np.ones((1, 3, 3), np.int8)) -> np.array:
+    """
+
+    Parameters
+    ----------
+    pred_ : np.array
+        Segmentation mask.
+    kernel : np.array, optional
+        Size of the structuring element for binary erosion. The default is
+        np.ones((1, 3, 3), np.int8).
+
+    Returns
+    -------
+    pred_ : np.array
+        The eroded segmentation mask.
+
+    """
     pred_ = binary_erosion(pred_, kernel).astype(pred_.dtype)
+    
+    return pred_
+
+
+def dilate_volume(pred_: np.array,
+                  kernel: np.array = np.ones((1, 5, 5), np.int8)) -> np.array:
+    """
+    
+    Parameters
+    ----------
+    pred_ : np.array
+        Segmentation mask.
+    kernel : np.array, optional
+        Size of the structuring element for binary dilation. The default is
+        np.ones((1, 5, 5), np.int8) which results in a two-voxel "ring" around
+        the target structure.
+
+    Returns
+    -------
+    pred_ : np.array
+        The dilated segmentation mask.
+
+    """
+    pred_ = binary_dilation(pred_, kernel).astype(pred_.dtype)
     
     return pred_
 
