@@ -10,7 +10,7 @@ I automated to pipeline from whole-body MR images in DICOM format aquired in mul
 ## Examples
 Here are some code snippets that show how the different functions can be used to form an automated pipeline.
 The output directory for the conversion part serves as input directory for the stitching part. I used a structure that looks similar to
-
+```
 .../converted_block_directory/study_identifier
 |-- participant_id
 |  |-- fat
@@ -22,7 +22,7 @@ The output directory for the conversion part serves as input directory for the s
 |  |-- opp
 |  |  |-- 00_block_1.nii.gz
 |  |  |-- 01_block_2.nii.gz
-
+```
 ### Conversion
 DICOM folders/locations are typically very different so I skip this part. To follow the tree structure examplified above, you would need to extract your (unique) participant IDs and identify to (sub-)folders containing to fat-selective, water-selective, and opposed-phase Dixon MR images in DICOM format.
 
