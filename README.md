@@ -9,22 +9,35 @@ I automated to pipeline from whole-body MR images in DICOM format aquired in mul
 
 ## Examples
 Here are some code snippets that show how the different functions can be used to form an automated pipeline.
-The output directory for the conversion part serves as input directory for the stitching part. I used a structure that looks similar to
+The output directory for the conversion part serves as input directory for the stitching part. I used a structure that looks similar to this:
 ```
-.../converted_block_directory/study_identifier
-|-- participant_id
-|  |-- fat
-|  |  |-- 00_block_1.nii.gz
-|  |  |-- 01_block_2.nii.gz
-|  |-- water
-|  |  |-- 00_block_1.nii.gz
-|  |  |-- 01_block_2.nii.gz
-|  |-- opp
-|  |  |-- 00_block_1.nii.gz
-|  |  |-- 01_block_2.nii.gz
+/some/path/to/converted_block_directory/
+|-- study_id_01
+    |-- participant_id_01
+    |  |-- fat
+    |  |  |-- 00_block_1.nii.gz
+    |  |  |-- 01_block_2.nii.gz
+    |  |-- water
+    |  |  |-- 00_block_1.nii.gz
+    |  |  |-- 01_block_2.nii.gz
+    |  |-- opp
+    |  |  |-- 00_block_1.nii.gz
+    |  |  |-- 01_block_2.nii.gz
+    |-- participant_id_02
+    |  |-- fat
+    |  |  |-- 00_block_1.nii.gz
+    |  |  |-- 01_block_2.nii.gz
+    |  |-- water
+    |  |  |-- 00_block_1.nii.gz
+    |  |  |-- 01_block_2.nii.gz
+    |  |-- opp
+    |  |  |-- 00_block_1.nii.gz
+    |  |  |-- 01_block_2.nii.gz
+|-- study_id_02
+...
 ```
 ### Conversion
-DICOM folders/locations are typically very different so I skip this part. To follow the tree structure examplified above, you would need to extract your (unique) participant IDs and identify to (sub-)folders containing to fat-selective, water-selective, and opposed-phase Dixon MR images in DICOM format.
+DICOM folders/locations are typically very different so I skip this part. To follow the tree structure examplified above, you would need to extract your (unique) participant IDs and to identify the (sub-)folders containing to fat-selective, water-selective, and opposed-phase Dixon MR images in DICOM format (e.g., on your PACS).
 
 ```python
 import os
@@ -32,9 +45,11 @@ import dicom2nifti
 dicom2nifti.settings.disable_validate_slice_increment()
 
 converted_block_directory = '/some/path/to/directory'
-for study in ['Study1', 'Study2', 'Study3']:
+for study in ['study_id_01', 'study_id_02']:
     for pid in participant_ids:
         pid_sub_dir = os.path.join(converted_block_directory, study, pid, 'fat')
+        if not os.path.isdir(pid_sub_dir):
+            os.mkdir(pid_sub_dir)
         dicom2nifti.convert_directory('/path/to/fat-selective', pid_sub_dir)
         # Similar for water-selective and oppposed-phase images
 ```
