@@ -225,11 +225,18 @@ def quantify_vertebral_fat_fraction(pred_: nib.Nifti1Image,
 ## Other bones?
 def quantify_bone_marrow(pred_: nib.Nifti1Image,
                          ff_map_: np.array,
-                         label_bones: int = 100,
+                         label_bones: int = 11,
                          two_sided: bool = False,
                          save_modified_mask: str = None):
+
+    pred_data_ = pred_.get_fdata()
+    bone_seg = np.where(pred_data_ == label_bones, 1, 0)
     
-    print('Not implemented yet.')
+    # Perform erosion for (PD)FF quantification
+    bone_seg = erode_volume(bone_seg)
+    ff_bone = np.mean(ff_map_[bone_seg != 0]) * 0.1
+
+    return ff_bone
 
 
 # periX ADIPOSE TISSUE QUANTIFICATION
