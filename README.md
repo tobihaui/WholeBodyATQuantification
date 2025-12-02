@@ -152,7 +152,7 @@ complete_cols = ['VAT/L', 'SAT/L', 'Liver(PD)FF/%', 'BackMuscle(PD)FF/%']
 
 img_seg_directory = '/path/to/converted_image_directory'
 pred_seg_directory = '/path/to/predicted_segmentations_directory'
-completed_segmentations = [i for i in os.listdir(pred_seg_directory)]
+completed_segmentations = [i for i in os.listdir(pred_seg_directory) if i.endswith('.gz')]
 
 # I assume that you store your results in a CSV file
 # Of course, any other option is possible (e.g., XLSX,...)
@@ -169,9 +169,8 @@ results_dict = {}
 for new in new_segmentations:
     results = []
     # Load segmentation
-    seg = nib.load(os.path.join(pred_seg_directory, f'{new}.nii.gz))
+    seg = nib.load(os.path.join(pred_seg_directory, f'{new}.nii.gz'))
     in_plane_resolution = np.prod(seg.header['pixdim'][1:4])
-    seg_data = seg.get_fdata()
     # Load images
     f_img = nib.load(os.path.join(img_seg_directory, f'{new}_0000.nii.gz')).get_fdata()
     w_img = nib.load(os.path.join(img_seg_directory, f'{new}_0001.nii.gz')).get_fdata()
@@ -180,14 +179,14 @@ for new in new_segmentations:
                        out=np.zeros_like(f_img),
                        where=((f_img+w_img) != 0))
     ff_img = ff_img * 1000  # Optional; included here to match SIEMENS PDFF maps
-    n_vat, n_sat_abd, n_sat_tho = quantify_large_adipose_tissue(seg_data)
+    n_vat, n_sat_abd, n_sat_tho = quantify_large_adipose_tissue(seg)
     results.append(n_vat * in_plane_resolution * 1e-6)
     results.append((n_sat_abd + n_sat_tho) * in_plane_resolution * 1e-6)
     # Liver
-    _, ff_liver = quantify_liver(seg_data, ff_img)
+    _, ff_liver = quantify_liver(seg, ff_img)
     results.append(ff_liver)
     # Back muscles
-    _, _, ff_muscle = quantify_muscle(seg_data, ff_img, label_muscle=9)
+    _, _, ff_muscle = quantify_muscle(seg, ff_img, label_muscle=9)
     results.append(ff_muscle)
     # Optional: round results
     results = [np.round(i, 2) if i is not None else i for i in results]
