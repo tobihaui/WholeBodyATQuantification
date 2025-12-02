@@ -1,5 +1,16 @@
 import os
+import slicer
 from typing import List
+
+# Setup extensions internals
+stitch = slicer.util.getModuleGui("StitchVolumes")
+stitch_logic = slicer.util.getModuleLogic('StitchVolumes')
+pn = stitch._parameterNode
+
+# Parameters
+useThresholdValue = True
+thresholdValue = -1024.0
+defaultVoxelValue = 0
 
 
 def stitch_blocks(blocks_to_stitch: List[str],
