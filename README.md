@@ -81,6 +81,7 @@ for pid in participant_ids:
 ### Stitching with [SlicerStitchImageVolumes](https://github.com/mikebind/SlicerStitchImageVolumes)
 The stitching is based on a function provided in [stitch_image_volumes.py](stitch_image_volumes.py). You need to install [3D Slicer](https://www.slicer.org/) and should have its directory accessible from within Python. An outline of a script for the automated stitching of different Dixon blocks (if you have only one block acquired, this can be skipped) could look like:
 ```python
+import os
 # Setup extensions internals
 stitch = slicer.util.getModuleGui("StitchVolumes")
 stitch_logic = slicer.util.getModuleLogic('StitchVolumes')
@@ -99,7 +100,7 @@ img_seg_directory = '/path/to/converted_image_directory'
 pids = [i for i in os.listdir(converted_block_directory)]
 for p in pids:
     for i, dix in enumerate(['fat', 'water', 'opp']):
-        block_dir = os.path.join(study_sub_dir, p, dix)
+        block_dir = os.path.join(converted_block_directory, p, dix)
         blocks = [i for i in os.listdir(block_dir)]
         output_file = os.path.join(img_seg_directory,
                                    '{p}_000{i}.nii.gz')
