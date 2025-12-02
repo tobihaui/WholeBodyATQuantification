@@ -64,33 +64,26 @@ converted_block_directory = '/path/to/converted_block_directory/'
 participant_ids = [i for i in os.listdir(dcm_img_directory) if 'STUDY_ID' in i]
 
 for pid in participant_ids:
-    sequences = [i for i in os.listdir(os.path.join(dcm_img_directory, pid))]
-    dixon_f = [i for i in sequences if 'dixon_f' in i.lower()]
-    dixon_w = [i for i in sequences if 'dixon_w' in i.lower()]
-    dixon_opp = [i for i in sequences if 'dixon_opp' in i.lower()]
-    # Run conversion
-    pid_fat_sub_dir = os.path.join(converted_block_directory, pid, 'fat')
-    if not os.path.isdir(pid_fat_sub_dir):
-        os.mkdir(pid_fat_sub_dir)
-    for f in dixon_f:
-        dicom2nifti.convert_directory(os.path.join(dcm_img_directory, pid, f),
-                                      pid_fat_sub_dir)
-    # Similar for water-selective and oppposed-phase images
+    pid_directory = os.path.join(converted_block_directory, pid)
+    if not os.path.isdir(pid_directory):
+        sequences = [i for i in os.listdir(os.path.join(dcm_img_directory, pid))]
+        dixon_f = [i for i in sequences if 'dixon_f' in i.lower()]
+        dixon_w = [i for i in sequences if 'dixon_w' in i.lower()]
+        dixon_opp = [i for i in sequences if 'dixon_opp' in i.lower()]
+        # Run conversion
+        pid_fat_sub_dir = os.path.join(pid_directory, 'fat')
+        if not os.path.isdir(pid_fat_sub_dir):
+            os.mkdir(pid_fat_sub_dir)
+        for f in dixon_f:
+            dicom2nifti.convert_directory(os.path.join(dcm_img_directory, pid, f),
+                                          pid_fat_sub_dir)
+        # Similar for water-selective and oppposed-phase images
 ```
 
 ### Stitching with [SlicerStitchImageVolumes](https://github.com/mikebind/SlicerStitchImageVolumes)
 The stitching is based on a function provided in [stitch_image_volumes.py](stitch_image_volumes.py). You need to install [3D Slicer](https://www.slicer.org/) and should have its directory accessible from within Python. An outline of a script for the automated stitching of different Dixon blocks (if you have only one block acquired, this can be skipped) could look like:
 ```python
 import os
-# Setup extensions internals
-stitch = slicer.util.getModuleGui("StitchVolumes")
-stitch_logic = slicer.util.getModuleLogic('StitchVolumes')
-pn = stitch._parameterNode
-
-# Parameters
-useThresholdValue = True
-thresholdValue = -1024.0
-defaultVoxelValue = 0
 
 from stitch_image_volumes import stitch_blocks
 
@@ -100,12 +93,12 @@ img_seg_directory = '/path/to/converted_image_directory'
 pids = [i for i in os.listdir(converted_block_directory)]
 for p in pids:
     for i, dix in enumerate(['fat', 'water', 'opp']):
-        block_dir = os.path.join(converted_block_directory, p, dix)
-        blocks = [i for i in os.listdir(block_dir)]
-        output_file = os.path.join(img_seg_directory,
-                                   '{p}_000{i}.nii.gz')
-        stitch_blocks(blocks, block_dir, output_file)
-        slicer.mrmlScene.Clear()
+        output_file = os.path.join(img_seg_directory, '{p}_000{i}.nii.gz')
+        if not os.path.isfile(output_file):
+            block_dir = os.path.join(converted_block_directory, p, dix)
+            blocks = [i for i in os.listdir(block_dir)]
+            stitch_blocks(blocks, block_dir, output_file)
+            slicer.mrmlScene.Clear()
 sys.exit(0)
 ```
 Your stiching script needs to be run inside 3D Slicer's Python environment, for example, as a subprocess (inside the conversion script above):
@@ -119,6 +112,28 @@ Install and setup a working [nnU-Net](https://github.com/MIC-DKFZ/nnUNet) enviro
 ```
 nnUNetv2_predict -i /some/input/directory -o /some/output/directory -d 301 -c 3d_fullres -p nnUNetResEncUNetMPlans --continue_prediction
 ```
+If whole-body Dixon MR data (neck to feet) is processed, the model outputs a total of 19 classes. If not part of the input data (e.g., when aquiring only the abdomen), the respective classes should not be included.
+| Class number | Meaning |
+| ------------ | ------- |
+| 1            | Subcutaneous adipose tissue |
+| 2            | Visceral adipose tissue |
+| 3            | Adipose tissue around the knee |
+| 4            | Cardiac adipose tissue |
+| 5            | Thigh extensors |
+| 6            | Thigh adductors |
+| 7            | Glutes (*gluteus maximus*, *gluteus minimus*, *gluteus medius*, *M. piriformis* |
+| 8            | Iliopsoas |
+| 9            | Back muscles |
+| 10           | Aorta |
+| 11           | Femur |
+| 12           | Hip |
+| 13           | Sacrum |
+| 14           | Vertebral bodies (Lumbar and thoracic spine) |
+| 15           | Kidneys |
+| 16           | Liver |
+| 17           | Spleen |
+| 18           | Pancreas |
+| 19           | Calves |
 
 ### Quantification
 Quantification is based on the functions provided in [quantification_from_segmentation.py](quantification_from_segmentation.py).
@@ -135,7 +150,7 @@ from quantification_from_segmentation import quantify_large_adipose_tissue, quan
 # Define columns of a complete quantification
 complete_cols = ['VAT/L', 'SAT/L', 'Liver(PD)FF/%', 'BackMuscle(PD)FF/%']
 
-img_directory = '/path/to/converted_image_directory'
+img_seg_directory = '/path/to/converted_image_directory'
 pred_seg_directory = '/path/to/predicted_segmentations_directory'
 completed_segmentations = [i for i in os.listdir(pred_seg_directory)]
 
@@ -158,8 +173,8 @@ for new in new_segmentations:
     in_plane_resolution = np.prod(seg.header['pixdim'][1:4])
     seg_data = seg.get_fdata()
     # Load images
-    f_img = nib.load(os.path.join(img_directory, f'{new}_0000.nii.gz')).get_fdata()
-    w_img = nib.load(os.path.join(img_directory, f'{new}_0001.nii.gz')).get_fdata()
+    f_img = nib.load(os.path.join(img_seg_directory, f'{new}_0000.nii.gz')).get_fdata()
+    w_img = nib.load(os.path.join(img_seg_directory, f'{new}_0001.nii.gz')).get_fdata()
     # Create FF map (or load PDFF map from Nifti file)
     ff_img = np.divide(f_img, (f_img+w_img),
                        out=np.zeros_like(f_img),
