@@ -84,29 +84,33 @@ def quantify_cardiac_adipose_tissue(pred_: nib.Nifti1Image,
 """
 Macroscopic fat inside the kidneys
 """
-def quantify_renal_hilum_fat(pred_: nib.Nifti1Image,
-                             ff_map_: np.array,
-                             label_kidneys: int = 15,
-                             save_modified_mask: str = None) -> Tuple[int, int]:
+def quantify_kidneys(pred_: nib.Nifti1Image,
+                     ff_map_: np.array,
+                     label_kidneys: int = 15,
+                     save_modified_mask: str = None) -> Tuple[int, int]:
     pred_data_ = pred_.get_fdata()
     fat_in_hilum = np.zeros(pred_data_.shape, dtype=np.int8)
-    kidney_seg = np.where(pred_data_ == label_kidneys, label_kidneys, 0)
-    kidney_seg = erode_volume(kidney_seg)
+    kidney_seg = np.where(pred_data_ == label_kidneys, 1, 0)
     sep = left_right_separation(kidney_seg)
-    kidney_seg[:sep, :, :][kidney_seg[:sep, :, :] != 0] = 20
-    kidney_seg[sep:, :, :][kidney_seg[sep:, :, :] != 0] = 21
-    thr_l = compute_intensity_threshold(ff_map_[kidney_seg == 20])
-    thr_r = compute_intensity_threshold(ff_map_[kidney_seg == 21])
-    fat_in_hilum[(kidney_seg == 20) & (ff_map_ > thr_l)] = 1
-    fat_in_hilum[(kidney_seg == 21) & (ff_map_ > thr_r)] = 2
-    
+    kidney_eroded = erode_volume(kidney_seg)
+    # Differentiate left and right kidney
+    kidney_seg[sep:, :, :][kidney_seg[sep:, :, :] != 0] = 2
+    kidney_eroded[sep:, :, :][kidney_eroded[sep:, :, :] != 0] = 2
+    thr_l = compute_intensity_threshold(ff_map_[kidney_eroded == 1])
+    thr_r = compute_intensity_threshold(ff_map_[kidney_eroded == 2])
+    fat_in_hilum[(kidney_eroded == 1) & (ff_map_ > thr_l)] = 1
+    fat_in_hilum[(kidney_eroded == 2) & (ff_map_ > thr_r)] = 2
+    parenchyma = kidney_seg - fat_in_hilum
+    # Count voxels
     n_hilum_l = np.count_nonzero(fat_in_hilum == 1)
     n_hilum_r = np.count_nonzero(fat_in_hilum == 2)
+    n_parenchyma_l = np.count_nonzero(parenchyma == 1)
+    n_parenchyma_r = np.count_nonzero(parenchyma == 2)
     
     if save_modified_mask is not None:
         _save_modified_mask(fat_in_hilum, pred_, save_modified_mask)
     
-    return n_hilum_l, n_hilum_r
+    return n_hilum_l, n_hilum_r, n_parenchyma_l, n_parenchyma_r
 
 
 ## Intramuscular fat
@@ -225,18 +229,11 @@ def quantify_vertebral_fat_fraction(pred_: nib.Nifti1Image,
 ## Other bones?
 def quantify_bone_marrow(pred_: nib.Nifti1Image,
                          ff_map_: np.array,
-                         label_bones: int = 11,
+                         label_bones: int = 100,
                          two_sided: bool = False,
                          save_modified_mask: str = None):
-
-    pred_data_ = pred_.get_fdata()
-    bone_seg = np.where(pred_data_ == label_bones, 1, 0)
     
-    # Perform erosion for (PD)FF quantification
-    bone_seg = erode_volume(bone_seg)
-    ff_bone = np.mean(ff_map_[bone_seg != 0]) * 0.1
-
-    return ff_bone
+    print('Not implemented yet.')
 
 
 # periX ADIPOSE TISSUE QUANTIFICATION
