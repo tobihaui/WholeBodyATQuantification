@@ -7,6 +7,8 @@ I automated to pipeline from whole-body MR images in DICOM format aquired in mul
 3. Segmentation of adipose tissue compartments and ectopic fat deposits: [nnU-Net](https://github.com/MIC-DKFZ/nnUNet) - trained model weights are available upon collaboration request
 4. Quantification of volumes and fat percentages using functions provided in [quantification_from_segmentation.py](quantification_from_segmentation.py)
 
+If you are using any of my code, please cite my paper on [medRxiv](https://doi.org/10.64898/2026.02.25.26347069).
+
 ## Examples
 Here are some code snippets that show how the different functions can be used to form an automated pipeline.
 The output directory for the conversion part serves as input directory for the stitching part. I used a structure that looks similar to:
